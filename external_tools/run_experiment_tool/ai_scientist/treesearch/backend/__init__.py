@@ -1,5 +1,6 @@
 import os
-from . import backend_anthropic, backend_openai
+from . import backend_anthropic, backend_openai, backend_subscription
+from ai_scientist.llm import is_subscription_model
 from .utils import FunctionSpec, OutputType, PromptType, compile_prompt_to_md
 
 
@@ -32,6 +33,15 @@ def query(
         "model": model,
         "temperature": temperature,
     }
+
+    if is_subscription_model(model):
+        output, *_ = backend_subscription.query(
+            system_message=compile_prompt_to_md(system_message) if system_message else None,
+            user_message=compile_prompt_to_md(user_message) if user_message else None,
+            func_spec=func_spec,
+            model=model,
+        )
+        return output
 
     # Handle models with different API requirements
     if model.startswith("o1"):

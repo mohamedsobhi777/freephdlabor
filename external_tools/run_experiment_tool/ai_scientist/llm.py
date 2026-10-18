@@ -8,6 +8,13 @@ import anthropic
 import backoff
 import openai
 
+try:
+    from freephdlabor.subscription_llm import complete, is_subscription_model
+except ImportError:  # launched standalone: add the freephdlabor repo root to the path
+    import sys
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
+    from freephdlabor.subscription_llm import complete, is_subscription_model
+
 MAX_NUM_TOKENS = 4096
 
 AVAILABLE_LLMS = [
@@ -102,7 +109,7 @@ def get_batch_responses_from_llm(
     if msg_history is None:
         msg_history = []
 
-    if "gpt" in model:
+    if "gpt" in model and not is_subscription_model(model):
         new_msg_history = msg_history + [{"role": "user", "content": msg}]
         response = client.chat.completions.create(
             model=model,
@@ -235,7 +242,11 @@ def get_response_from_llm(
     if msg_history is None:
         msg_history = []
 
-    if "claude" in model:
+    if is_subscription_model(model):
+        new_msg_history = msg_history + [{"role": "user", "content": msg}]
+        content = complete(model, new_msg_history, system=system_message).text
+        new_msg_history = new_msg_history + [{"role": "assistant", "content": content}]
+    elif "claude" in model:
         new_msg_history = msg_history + [
             {
                 "role": "user",
@@ -406,7 +417,10 @@ def extract_json_between_markers(llm_output: str) -> dict | None:
 
 
 def create_client(model) -> tuple[Any, str]:
-    if model.startswith("claude-"):
+    if is_subscription_model(model):
+        print(f"Using subscription CLI with model {model}.")
+        return None, model
+    elif model.startswith("claude-"):
         print(f"Using Anthropic API with model {model}.")
         return anthropic.Anthropic(), model
     elif model.startswith("bedrock") and "claude" in model:

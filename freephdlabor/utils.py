@@ -2,10 +2,22 @@ import json
 import os
 import re
 from typing import Optional
-from smolagents import LiteLLMModel
+from smolagents import LiteLLMModel, Model
+from smolagents.models import ChatMessage, MessageRole
+from smolagents.monitoring import TokenUsage
+
+from freephdlabor.subscription_llm import complete, is_subscription_model
 
 # Available models
 AVAILABLE_MODELS = [
+    # Subscription-backed models (Claude Pro/Max via Claude Code, ChatGPT via Codex CLI).
+    # Any "claude-code/<model>" or "codex/<model>" also works via .llm_config.yaml.
+    "claude-code",
+    "claude-code/opus",
+    "claude-code/sonnet",
+    "claude-code/fable",
+    "codex",
+    "codex/gpt-6.1-sol",
     # OpenAI GPT-5.x models (latest)
     "gpt-5.6",
     "gpt-5.6-sol",
@@ -82,6 +94,37 @@ def extract_content_between_markers(response: str, start_marker: str, end_marker
     except Exception as e:
         return None
 
+class SubscriptionCLIModel(Model):
+    """smolagents Model that runs completions through the Claude Code or Codex CLI (subscription login)."""
+
+    def __init__(self, model_id: str, reasoning_effort: Optional[str] = None, context_limit: int = 200000):
+        super().__init__(model_id=model_id)
+        self.effort = reasoning_effort
+        self.context_limit = context_limit
+
+    def generate(self, messages, stop_sequences=None, response_format=None, tools_to_call_from=None, **kwargs) -> ChatMessage:
+        if isinstance(messages, str):
+            messages = [{"role": "user", "content": messages}]
+        json_schema = None
+        if response_format and response_format.get("type") == "json_schema":
+            json_schema = response_format["json_schema"].get("schema")
+        result = complete(
+            self.model_id,
+            messages,
+            json_schema=json_schema,
+            stop_sequences=stop_sequences,
+            effort=self.effort,
+        )
+        self._last_input_token_count = result.input_tokens
+        self._last_output_token_count = result.output_tokens
+        return ChatMessage(
+            role=MessageRole.ASSISTANT,
+            content=json.dumps(result.structured) if json_schema and result.structured is not None else result.text,
+            raw=result.raw,
+            token_usage=TokenUsage(input_tokens=result.input_tokens, output_tokens=result.output_tokens),
+        )
+
+
 def create_model(model_name, reasoning_effort="medium", verbosity="medium", budget_tokens=None):
     """Create a smolagents model based on the model name using API keys from environment variables.
 
@@ -92,6 +135,13 @@ def create_model(model_name, reasoning_effort="medium", verbosity="medium", budg
         budget_tokens: Claude Extended Thinking token budget (min: 1024, recommended: 16k+)
     """
     
+    if is_subscription_model(model_name):
+        return SubscriptionCLIModel(
+            model_id=model_name,
+            reasoning_effort=reasoning_effort,
+            context_limit=int(os.environ.get("SUBSCRIPTION_CONTEXT_LIMIT", "200000")),
+        )
+
     # Model context limits for fallback detection
     # These will be passed as custom attributes to LiteLLMModel via **kwargs
     model_context_limits = {

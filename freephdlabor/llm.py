@@ -8,6 +8,8 @@ import anthropic
 import backoff
 import openai
 
+from freephdlabor.subscription_llm import complete, is_subscription_model
+
 MAX_NUM_TOKENS = 4096
 
 AVAILABLE_LLMS = [
@@ -392,7 +394,11 @@ def get_response_from_vlm(
     messages.extend(new_msg_history)
     
     # Make API call (currently only supports OpenAI-compatible VLMs)
-    if "gpt-4o" in model or "gpt-4-vision" in model or model.startswith("gpt-5.5") or model.startswith("gpt-5.6"):
+    if is_subscription_model(model):
+        content_response = complete(model, messages).text
+        new_msg_history = new_msg_history + [{"role": "assistant", "content": content_response}]
+
+    elif "gpt-4o" in model or "gpt-4-vision" in model or model.startswith("gpt-5.5") or model.startswith("gpt-5.6"):
         response = client.chat.completions.create(
             model=model,
             messages=messages,
@@ -431,7 +437,10 @@ def create_vlm_client(model: str = "gpt-5.6"):
     Returns:
         Tuple of (client, model_name)
     """
-    if "gpt-4o" in model or "gpt-4-vision" in model or model.startswith("gpt-5.5") or model.startswith("gpt-5.6"):
+    if is_subscription_model(model):
+        print(f"Using subscription CLI VLM {model}.")
+        return None, model
+    elif "gpt-4o" in model or "gpt-4-vision" in model or model.startswith("gpt-5.5") or model.startswith("gpt-5.6"):
         print(f"Using OpenAI VLM API with model {model}.")
         return openai.OpenAI(), model
     else:

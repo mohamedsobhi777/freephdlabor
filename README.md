@@ -599,6 +599,45 @@ run_experiment_tool:
 
 This demonstrates the fine-grained control available - you can use different models for different components. For example, you might use a fast, cost-effective model for main agents while using a more powerful reasoning model for experiment execution.
 
+### Using a Claude or ChatGPT Subscription Instead of API Credits
+
+Any model can be routed through the [Claude Code](https://docs.claude.com/en/docs/claude-code) or [Codex](https://github.com/openai/codex) CLI, so calls are billed to your Claude Pro/Max or ChatGPT plan instead of API credits:
+
+| Model name | Backend |
+|------------|---------|
+| `claude-code`, `claude-code/<model>` (e.g. `claude-code/opus`, `claude-code/sonnet`) | `claude -p` with your Claude login |
+| `codex`, `codex/<model>` (e.g. `codex/gpt-6.1-sol`) | `codex exec` with your ChatGPT login |
+
+```yaml
+main_agents:
+  model: claude-code/opus
+  reasoning_effort: high
+
+run_experiment_tool:
+  code_model: codex/gpt-6.1-sol
+  feedback_model: codex/gpt-6.1-sol
+  vlm_model: codex/gpt-6.1-sol
+  report_model: codex/gpt-6.1-sol
+  reasoning_effort: high
+```
+
+Setup: install both CLIs and log in once (`claude`, then `codex login`). No API keys are needed; any `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` is stripped from the CLI subprocess so it can't silently bill your API account. Run `codex` interactively and use `/model` to see which models your ChatGPT plan allows.
+
+How it works: `freephdlabor/subscription_llm.py` flattens each request (chat history, system prompt, images) into a single tool-less CLI call. Structured outputs (AI-Scientist function calls) use `--json-schema` / `--output-schema`.
+
+Things to know:
+- **Usage limits.** A full run makes hundreds to thousands of long calls. When the CLI reports a usage limit, the call waits and retries (default: poll every 10 min for up to 6 h) instead of failing the run.
+- **Latency.** Each call starts a new CLI process, so expect ~3-15 s overhead per call. Codex also adds ~15k tokens of its own instructions to every call.
+- **Terms.** Check your provider's current terms for automated use of subscription plans.
+
+| Env var | Default | Purpose |
+|---------|---------|---------|
+| `SUBSCRIPTION_CONTEXT_LIMIT` | `200000` | Context size used to trigger agent memory compaction |
+| `SUBSCRIPTION_CALL_TIMEOUT` | `1800` | Seconds before a single CLI call is killed |
+| `SUBSCRIPTION_MAX_RETRIES` | `4` | Retries for non-usage-limit failures |
+| `SUBSCRIPTION_LIMIT_POLL` / `SUBSCRIPTION_LIMIT_MAX_WAIT` | `600` / `21600` | Wait between retries / total wait when a usage limit is hit |
+| `CLAUDE_CODE_CLI` / `CODEX_CLI` | `claude` / `codex` | CLI executables |
+
 ## 🤝 Contributing
 
 1. Fork the repository

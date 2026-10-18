@@ -6,6 +6,7 @@ import backoff
 import openai
 from PIL import Image
 from ai_scientist.utils.token_tracker import track_token_usage
+from ai_scientist.llm import complete, is_subscription_model
 
 MAX_NUM_TOKENS = 4096
 
@@ -112,7 +113,7 @@ def get_response_from_vlm(
     if msg_history is None:
         msg_history = []
 
-    if model in AVAILABLE_VLMS:
+    if model in AVAILABLE_VLMS or is_subscription_model(model):
         # Convert single image path to list for consistent handling
         if isinstance(image_paths, str):
             image_paths = [image_paths]
@@ -135,15 +136,17 @@ def get_response_from_vlm(
         # Construct message with all images
         new_msg_history = msg_history + [{"role": "user", "content": content}]
 
-        response = make_vlm_call(
-            client,
-            model,
-            temperature,
-            system_message=system_message,
-            prompt=new_msg_history,
-        )
-
-        content = response.choices[0].message.content
+        if is_subscription_model(model):
+            content = complete(model, new_msg_history, system=system_message).text
+        else:
+            response = make_vlm_call(
+                client,
+                model,
+                temperature,
+                system_message=system_message,
+                prompt=new_msg_history,
+            )
+            content = response.choices[0].message.content
         new_msg_history = new_msg_history + [{"role": "assistant", "content": content}]
     else:
         raise ValueError(f"Model {model} not supported.")
@@ -162,7 +165,10 @@ def get_response_from_vlm(
 
 def create_client(model: str) -> tuple[Any, str]:
     """Create client for vision-language model."""
-    if model in [
+    if is_subscription_model(model):
+        print(f"Using subscription CLI VLM {model}.")
+        return None, model
+    elif model in [
         "gpt-4o-2024-05-13",
         "gpt-4o-2024-08-06",
         "gpt-4o-2024-11-20",
@@ -241,7 +247,16 @@ def get_batch_responses_from_vlm(
     if msg_history is None:
         msg_history = []
 
-    if model in [
+    if is_subscription_model(model):
+        contents, new_msg_histories = [], []
+        for _ in range(n_responses):
+            c, hist = get_response_from_vlm(
+                msg, image_paths, client, model, system_message,
+                msg_history=msg_history, temperature=temperature, max_images=max_images,
+            )
+            contents.append(c)
+            new_msg_histories.append(hist)
+    elif model in [
         "gpt-4o-2024-05-13",
         "gpt-4o-2024-08-06",
         "gpt-4o-2024-11-20",

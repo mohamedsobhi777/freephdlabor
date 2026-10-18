@@ -3,6 +3,7 @@ from .serp_search.serp_search import create_search_api, SearchAPI
 from .context_building.process_sources_pro import SourceProcessor
 from .context_building.build_context import build_context
 from litellm import completion, utils
+from freephdlabor.subscription_llm import complete, is_subscription_model
 from dotenv import load_dotenv
 import os
 from .prompts import SEARCH_SYSTEM_PROMPT
@@ -147,6 +148,8 @@ class OpenDeepSearchAgent:
             {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"}
         ]
         # Get completion from LLM
+        if is_subscription_model(self.model):
+            return complete(self.model, messages).text
         response = completion(
             model=self.model,
             messages=messages,

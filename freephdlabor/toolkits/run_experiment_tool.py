@@ -273,10 +273,15 @@ class RunExperimentTool(Tool):
                 "--skip_writeup",  # Skip writeup stage to avoid LaTeX failures
                 "--skip_review",   # Skip review stage since no writeup is generated
                 "--end_stage", str(end_stage),  # ADD THIS LINE
+                "--model_agg_plots", report_model,
             ]
             
             # Pass environment variables to subprocess
             env = os.environ.copy()
+            # Make the freephdlabor package (subscription CLI backends) importable from AI-Scientist
+            repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            env["PYTHONPATH"] = os.pathsep.join(filter(None, [repo_root, env.get("PYTHONPATH")]))
+            env["RUN_EXPERIMENT_REPORT_MODEL"] = report_model
             
             # Create log directory in workspace if available
             log_dir = None

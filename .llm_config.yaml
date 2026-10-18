@@ -3,10 +3,16 @@
 
 main_agents:
   # Model for all main agents (Manager, Ideation, Experimentation, Writeup)
-  model: claude-opus-5 # Claude Opus 5 — current flagship as of Sep 2026
+  # Subscription-backed (no API credits): runs through the Claude Code CLI on your
+  # Claude Pro/Max login. Use "claude-code/<alias-or-id>" (opus, sonnet, fable, ...)
+  # or "codex/<model>" for your ChatGPT plan via the Codex CLI.
+  model: claude-code/opus
+  reasoning_effort: high  # claude-code: low|medium|high|xhigh|max, codex: minimal|low|medium|high
 
-  # Claude Extended Thinking settings (optional, only for Claude 4.x models)
-  budget_tokens: 16384  # Reasoning token budget (min: 1024, recommended: 16k+)
+  # # API-key alternative:
+  # model: claude-opus-5 # Claude Opus 5 — current flagship as of Sep 2026
+  # # Claude Extended Thinking settings (optional, only for Claude 4.x models)
+  # budget_tokens: 16384  # Reasoning token budget (min: 1024, recommended: 16k+)
 
   # # # Gemini-specific settings
   # model: gemini-2.5-pro
@@ -14,9 +20,15 @@ main_agents:
 
 run_experiment_tool:
   # Models for RunExperimentTool (AI-Scientist-v2 subprocess)
-  code_model: gpt-5.6
-  feedback_model: gpt-5.6
-  vlm_model: gpt-5.6
-  report_model: gpt-5.6
-  # GPT-5 specific settings (also apply to gpt-5.x)
+  # Subscription-backed: runs through the Codex CLI on your ChatGPT login
+  code_model: codex/gpt-6.1-sol
+  feedback_model: codex/gpt-6.1-sol
+  vlm_model: codex/gpt-6.1-sol
+  report_model: codex/gpt-6.1-sol
+  # # API-key alternative:
+  # code_model: gpt-5.6
+  # feedback_model: gpt-5.6
+  # vlm_model: gpt-5.6
+  # report_model: gpt-5.6
+  # GPT-5 specific settings (also apply to gpt-5.x and codex/*)
   reasoning_effort: high  # minimal, low, medium, high
