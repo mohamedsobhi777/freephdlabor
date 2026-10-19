@@ -623,6 +623,13 @@ run_experiment_tool:
 
 Setup: install both CLIs and log in once (`claude`, then `codex login`). No API keys are needed; any `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` is stripped from the CLI subprocess so it can't silently bill your API account. Run `codex` interactively and use `/model` to see which models your ChatGPT plan allows.
 
+Test your setup (uses the models in `.llm_config.yaml`, with API keys removed from the environment):
+
+```bash
+python scripts/test_subscription_backends.py              # quick + agents, ~3-5 min
+python scripts/test_subscription_backends.py experiment   # real AI-Scientist run, stage 1 with the POC budget
+```
+
 How it works: `freephdlabor/subscription_llm.py` flattens each request (chat history, system prompt, images) into a single tool-less CLI call. Structured outputs (AI-Scientist function calls) use `--json-schema` / `--output-schema`.
 
 Things to know:

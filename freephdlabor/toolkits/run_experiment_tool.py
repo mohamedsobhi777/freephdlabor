@@ -377,8 +377,16 @@ class RunExperimentTool(Tool):
                     "note": "Check terminal output above for details"
                 })
 
-            with open(summary_path, "r") as f:
-                research_summary = json.load(f)
+            # Stages after end_stage never run and leave null summaries, so use the latest stage that has one
+            research_summary = None
+            for summary_file in ["research_summary.json", "baseline_summary.json", "draft_summary.json"]:
+                candidate_path = os.path.join(logs_dir, latest_run, summary_file)
+                if os.path.exists(candidate_path):
+                    with open(candidate_path, "r") as f:
+                        research_summary = json.load(f)
+                    if research_summary:
+                        break
+            research_summary = research_summary or {}
 
             # Find best code and save it
             best_code = None

@@ -12,11 +12,18 @@ from .interpreter import ExecutionResult
 from .utils.metric import MetricValue, WorstMetricValue
 from .utils.response import trim_long_string
 from .backend import FunctionSpec, query
+from ai_scientist.llm import is_subscription_model
 
 from rich import print
 
 import logging
 from pathlib import Path
+
+
+def _summary_model(default: str) -> str:
+    """Use the configured report model when it is subscription-backed, else keep the historical default."""
+    report_model = os.environ.get("RUN_EXPERIMENT_REPORT_MODEL")
+    return report_model if is_subscription_model(report_model) else default
 
 logger = logging.getLogger(__name__)
 
@@ -471,7 +478,7 @@ class Journal:
                 system_message=prompt,
                 user_message=None,
                 func_spec=node_selection_spec,
-                model="gpt-4o",
+                model=_summary_model("gpt-4o"),
                 temperature=0.3,
             )
 
@@ -535,7 +542,7 @@ class Journal:
                 "2. Common failure patterns and pitfalls to avoid\n"
                 "3. Specific recommendations for future experiments based on both successes and failures"
             ),
-            model="gpt-4o",
+            model=_summary_model("gpt-4o"),
             temperature=0.3,
         )
 
@@ -599,7 +606,7 @@ class Journal:
         stage_summary = query(
             system_message=summary_prompt,
             user_message="Generate a comprehensive summary of the experimental findings in this stage",
-            model="gpt-4",
+            model=_summary_model("gpt-4"),
             temperature=0.3,
         )
 

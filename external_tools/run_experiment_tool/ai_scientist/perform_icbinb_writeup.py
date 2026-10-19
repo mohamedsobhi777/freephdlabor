@@ -667,6 +667,7 @@ def load_exp_summaries(base_folder):
     Load the experiment summaries from the base folder.
     """
     summary_files = [
+        ("logs/0-run/draft_summary.json", "DRAFT_SUMMARY"),
         ("logs/0-run/baseline_summary.json", "BASELINE_SUMMARY"),
         ("logs/0-run/research_summary.json", "RESEARCH_SUMMARY"),
         ("logs/0-run/ablation_summary.json", "ABLATION_SUMMARY"),
@@ -720,6 +721,9 @@ def filter_experiment_summaries(exp_summaries, step_name):
 
     filtered_summaries = {}
     for stage_name in exp_summaries.keys():
+        # Stages after --end_stage never ran, so their summaries are null
+        if exp_summaries[stage_name] is None:
+            continue
         if stage_name in {"BASELINE_SUMMARY", "RESEARCH_SUMMARY"}:
             filtered_summaries[stage_name] = {}
             for key in exp_summaries[stage_name].keys():
@@ -739,6 +743,9 @@ def filter_experiment_summaries(exp_summaries, step_name):
                         filtered_summaries[stage_name][
                             ablation_summary["ablation_name"]
                         ][node_key] = ablation_summary[node_key]
+    # Stage-1-only runs have no later stages to filter; fall back to the draft summary
+    if not any(filtered_summaries.values()) and exp_summaries.get("DRAFT_SUMMARY"):
+        filtered_summaries["DRAFT_SUMMARY"] = exp_summaries["DRAFT_SUMMARY"]
     return filtered_summaries
 
 
